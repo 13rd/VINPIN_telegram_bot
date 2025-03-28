@@ -1,70 +1,68 @@
+import re
+
 import telebot
 import answers
 import random
 import config
+import json
 
-users = []
 
 TOKEN = config.TOKEN
+user_states = {}
+FORMAT_REGEX = r"^[a-zA-Z0-9_\-]+:[a-zA-Z0-9_\-]+@[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$"
 
 bot = telebot.TeleBot(TOKEN)
 
 
+
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    if message.chat.id not in users:
-        users.append(message.chat.id)
-    bot.send_message(message.chat.id,
-                     text=answers.greetings.format(username=message.from_user.first_name),
+    with open("users.json", "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    users = data.get("user_ids", [])
+    new_user_id = message.chat.id
+    if new_user_id not in users:
+        print(f"Доступ запрещен: {new_user_id}")
+        bot.send_message(message.chat.id, text="Доступ запрещен")
+    else:
+        bot.send_message(message.chat.id,
+                     text=answers.greetings.format(user_name=message.from_user.first_name),
                      reply_markup=answers.keyboard1, parse_mode='Markdown')
 
+#
+# @bot.message_handler(content_types=['text'])
+# def answer(message):
+#     if message.text == "Мои сервера":
+#         bot.send_message(message.chat.id, text=answers.ans1)
 
-@bot.message_handler(content_types=['text'])
-def answer(message):
-    if message.text == "О чём «МАНЕ»?":
-        bot.send_message(message.chat.id, text=answers.ans1)
-    if message.text == "Получить промокод":
-        bot.send_message(message.chat.id, text=answers.ans2)
-    if message.text == "Купить билет":
-        bot.send_message(message.chat.id, text=answers.ans3)
-    if message.text == "Отправить рассылку":
-        send_messages()
-    # else:
-    #     bot.send_message(message.chat.id,
-    #                      text="Выберите вариант из предложенных")
+@bot.message_handler(func=lambda message: message.text == "Мои сервера")
+def button_handler(message):
+    bot.send_message(message.chat.id, text=answers.ans1)
 
+@bot.message_handler(func=lambda message: message.text == "Добавить сервер")
+def button_handler(message):
+    user_id = message.from_user.id
+    user_states[user_id] = "awaiting_input"
+    print(user_states[user_id])
+    bot.send_message(message.chat.id, answers.ans2)
 
-# @bot.message_handler(commands=['send'])
-def send_messages():
-    print(users)
-    for user in users:
-        bot.send_message(user, text="Текст будущей рассылки", parse_mode='Markdown')
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == "awaiting_input")
+def message_handler(message):
+    user_id = message.from_user.id
+    input_data = message.text.strip()
 
+    # Проверяем формат ввода
+    if re.match(FORMAT_REGEX, input_data):
+        bot.send_message(message.chat.id, answers.ans3)
+        # Сохраняем данные (например, в базу данных или файл)
+        save_user_data(user_id, input_data)
+        del user_states[user_id]  # Сбрасываем состояние
+    else:
+        bot.send_message(message.chat.id, answers.ans4)
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_worker(call):
-    if call.data == "ecology":
-        bot.send_message(call.message.chat.id, answers.ecology, disable_web_page_preview=True)
-    if call.data == "creative":
-        bot.send_message(call.message.chat.id, answers.creative, disable_web_page_preview=True)
-    if call.data == "medicine":
-        bot.send_message(call.message.chat.id, answers.medicine, disable_web_page_preview=True)
-    if call.data == "digital":
-        bot.send_message(call.message.chat.id, answers.digital, disable_web_page_preview=True)
-    if call.data == "space":
-        bot.send_message(call.message.chat.id, answers.space, disable_web_page_preview=True)
-    if call.data == "humanitarian":
-        bot.send_message(call.message.chat.id, answers.humanitarian, disable_web_page_preview=True)
-    if call.data == "urban":
-        bot.send_message(call.message.chat.id, answers.urban, disable_web_page_preview=True)
-    if call.data == "energy":
-        bot.send_message(call.message.chat.id, answers.energy, disable_web_page_preview=True)
-
-
-@bot.message_handler(content_types=['text'])
-def other(message):
-    bot.send_message(message.chat.id, text="Не могу ответить на данные вопрос. Если мои ответы не удовлетворили ваше "
-                                           "любопытство обратитесь по номеру 8 (800) 300-61-22 и задайте свой вопрос")
+def save_user_data(user_id, data):
+    print(f"User {user_id} entered data: {data}")
 
 
 def main():
