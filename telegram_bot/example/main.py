@@ -1,15 +1,16 @@
 import re
 from dbm import error
 from idlelib.iomenu import errors
-
+import os
+from dotenv import load_dotenv
 import telebot
 import answers
 import random
-import config
 import json
 
+load_dotenv()
 
-TOKEN = config.TOKEN
+TOKEN = os.getenv("TOKEN")
 user_states = {}
 FORMAT_REGEX = r"^[a-zA-Z0-9_\-]+:[a-zA-Z0-9_\-]+@[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$"
 
@@ -24,7 +25,7 @@ def welcome(message):
     new_user_id = message.chat.id
     if new_user_id not in users:
         print(f"Доступ запрещен: {new_user_id}")
-        bot.send_message(message.chat.id, text="Доступ запрещен")
+        bot.send_message(message.chat.id, text="Доступ запрещен") # возможна реклама работы в vinpin
     else:
         bot.send_message(message.chat.id,
                      text=answers.greetings.format(user_name=message.from_user.first_name),
