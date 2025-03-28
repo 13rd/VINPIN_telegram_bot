@@ -1,7 +1,4 @@
 import re
-from dbm import error
-from idlelib.iomenu import errors
-
 import telebot
 import answers
 import random

@@ -1,16 +1,35 @@
 import os
 import paramiko
 import winrm
+import shutil
 
 
 def create_server_scripts_folder(server_name):
     """Создание папки для скриптов сервера."""
-    os.makedirs(f"server_scripts/{server_name}", exist_ok=True)
-    # Копирование стандартных скриптов
+    script_folder = f"server_scripts/{server_name}"
+    os.makedirs(script_folder, exist_ok=True)
+
+    # Определение источника скриптов в зависимости от типа сервера
     if "linux" in server_name.lower():
-        os.system(f"cp scripts/linux/* server_scripts/{server_name}/")
+        source_folder = "scripts/linux"
     elif "windows" in server_name.lower():
-        os.system(f"cp scripts/windows/* server_scripts/{server_name}/")
+        source_folder = "scripts/windows"
+    else:
+        return
+
+    # Копирование всех файлов из исходной папки в папку сервера
+    for filename in os.listdir(source_folder):
+        source_file = os.path.join(source_folder, filename)
+        destination_file = os.path.join(script_folder, filename)
+        if os.path.isfile(source_file):  # Копируем только файлы
+            shutil.copy(source_file, destination_file)
+
+
+def delete_server_scripts_folder(server_name):
+    """Удаление папки с файлами скриптов сервера."""
+    script_folder = f"server_scripts/{server_name}"
+    if os.path.exists(script_folder):
+        shutil.rmtree(script_folder)
 
 
 def list_scripts(server_name):
@@ -22,8 +41,10 @@ def list_scripts(server_name):
 def execute_script(server_name, script_name, connection_string):
     """Выполнение скрипта на удаленном сервере."""
     script_path = f"server_scripts/{server_name}/{script_name}"
+    print(script_path, connection_string)
 
-    if "linux" in connection_string.lower():
+    if "linux" in server_name.lower():
+        print("linux")
         # Разбор строки подключения
         user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
         ip, port = connection_string.split("@")[1].split(":")
@@ -39,6 +60,7 @@ def execute_script(server_name, script_name, connection_string):
         return output
 
     elif "windows" in connection_string.lower():
+        print()
         # Разбор строки подключения
         user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
         ip = connection_string.split("@")[1]
