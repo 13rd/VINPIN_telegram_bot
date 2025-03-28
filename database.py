@@ -1,0 +1,34 @@
+from pymongo import MongoClient
+import json
+from dotenv import load_dotenv
+
+MONGO_URI = config["mongo_uri"]
+DB_NAME = config["db_name"]
+
+# Подключение к MongoDB
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+
+users_collection = db["users"]
+servers_collection = db["servers"]
+
+
+def add_server(user_id, server_name, connection_string):
+    """Добавление сервера в базу данных."""
+    server_data = {
+        "user_id": user_id,
+        "server_name": server_name,
+        "connection_string": connection_string,
+        "scripts": []
+    }
+    servers_collection.insert_one(server_data)
+
+
+def get_servers(user_id):
+    """Получение списка серверов пользователя."""
+    return list(servers_collection.find({"user_id": user_id}))
+
+
+def get_server_by_id(server_id):
+    """Получение сервера по его ID."""
+    return servers_collection.find_one({"_id": server_id})

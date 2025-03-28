@@ -56,11 +56,13 @@ def execute_script(server_name, script_name, connection_string):
         ssh.connect(ip, port=port, username=user, password=password)
         stdin, stdout, stderr = ssh.exec_command(f"bash {script_path}")
         output = stdout.read().decode()
+        error = stderr.read().decode()
         ssh.close()
-        return output
+        return output, error
+
 
     elif "windows" in connection_string.lower():
-        print()
+        print("windows")
         # Разбор строки подключения
         user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
         ip = connection_string.split("@")[1]
@@ -82,3 +84,61 @@ def execute_script(server_name, script_name, connection_string):
             return result.std_err.decode()
 
     return "Unsupported server type."
+
+
+def copy_and_execute_script(server_name, script_name, connection_string):
+    """
+    Копирует скрипт на удаленный сервер, выполняет его и удаляет после завершения.
+    """
+    script_path = f"server_scripts/{server_name}/{script_name}"
+    if "linux" in connection_string.lower():
+        # Разбор строки подключения
+        user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
+        ip, port = connection_string.split("@")[1].split(":")
+        port = int(port)
+
+        # Создание SSH-клиента
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, port=port, username=user, password=password)
+
+        # Копирование файла через SFTP
+        sftp = ssh.open_sftp()
+        remote_path = f"/tmp/{os.path.basename(script_path)}"
+        sftp.put(script_path, remote_path)
+        sftp.close()
+
+        # Выполнение скрипта
+        stdin, stdout, stderr = ssh.exec_command(f"bash {remote_path}")
+        output = stdout.read().decode()
+        error = stderr.read().decode()
+
+        # Удаление файла
+        ssh.exec_command(f"rm {remote_path}")
+        ssh.close()
+
+        return output, error
+
+    elif "windows" in connection_string.lower():
+        # Разбор строки подключения
+        user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
+        ip, port = connection_string.split("@")[1].split(":")
+        port = int(port)
+
+        # Копирование файла через SCP
+        remote_path = f"C:\\temp\\{os.path.basename(script_path)}"
+        scp_command = f"scp -P {port} {script_path} {user}@{ip}:{remote_path}"
+        subprocess.run(scp_command, shell=True, check=True)
+
+        # Выполнение скрипта через PowerShell
+        ps_command = f"powershell.exe -Command Invoke-Expression {remote_path}"
+        output = subprocess.check_output(ps_command, shell=True).decode()
+
+        # Удаление файла
+        del_command = f"powershell.exe -Command Remove-Item {remote_path}"
+        subprocess.run(del_command, shell=True, check=True)
+
+        return output
+
+    else:
+        return "Unsupported server type."
