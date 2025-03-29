@@ -63,6 +63,7 @@ def handle_inline_button_click(call):
 
     scripts_btn = scripts.list_scripts(call.data.replace("server_", ""))
     keyboard = create_inline_keyboard(scripts_btn, 'script')
+    keyboard.add(telebot.types.InlineKeyboardButton("Удалить этот сервер", callback_data="script_delete_server"))
     bot.answer_callback_query(call.id)  # Подтверждаем нажатие
     bot.send_message(
         call.message.chat.id,
@@ -73,6 +74,15 @@ def handle_inline_button_click(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("script_"))
 def handle_inline_button_click(call):
     script_name = call.data.replace("script_", "")
+    if script_name == "delete_server":
+        result = database.delete_server(server_name = user_states[call.message.from_user.id].replace("choosing_server:", ""))
+        if result:
+            bot.send_message(call.message.chat.id, text="Сервер удалён")
+        else:
+            bot.send_message(call.message.chat.id, text="Ошибка удаления")
+        del user_states[call.message.from_user.id]
+        bot.answer_callback_query(call.id)
+        return
     try:
         server_name = user_states[call.message.from_user.id]
     except Exception as e:
