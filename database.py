@@ -15,6 +15,17 @@ db = client[DB_NAME]
 users_collection = db["users"]
 servers_collection = db["servers"]
 
+def add_user(user_id: int):
+    users_collection.insert_one({"user_id": user_id})
+
+def delete_user(user_id: int):
+    result = users_collection.delete_one({"user_id": user_id})
+    return result.deleted_count > 0
+
+def get_user_by_id(user_id: int):
+    user = users_collection.find_one({"user_id": user_id})
+    return user
+
 
 def add_server(user_id, server_name, connection_string, scripts: list):
     """Добавление сервера в базу данных."""

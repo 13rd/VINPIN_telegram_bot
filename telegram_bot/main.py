@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import telebot
 import answers
 import json
-
 import database
 import scripts
 
@@ -18,20 +17,16 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    with open("users.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    users = data.get("user_ids", [])
-    new_user_id = message.chat.id
-    if new_user_id not in users:
-        print(f"Доступ запрещен: {new_user_id}")
-        bot.send_message(message.chat.id, text="Доступ запрещен") # возможна реклама работы в vinpin
-    else:
+    # db_users = database.get_user_by_id(message.from_user.id)  # get user from db
+    db_users = [int(i) for i in os.getenv("USERS").replace("[", "").replace("]", '').split(",")]  # get users from .env
+    print(db_users)
+    if message.from_user.id in db_users:  # изменить при подключении через бд
         bot.send_message(message.chat.id,
                          text=answers.greetings.format(user_name=message.from_user.first_name),
                          reply_markup=answers.keyboard1, parse_mode='Markdown')
-
-
+    else:
+        print(f"Доступ запрещен: {message.from_user.id}")
+        bot.send_message(message.chat.id, text="Доступ запрещен")  # возможна реклама работы в vinpin
 
 
 @bot.message_handler(func=lambda message: message.text == "Мои сервера")
@@ -107,6 +102,8 @@ def message_handler(message):
         # Сохраняем данные (например, в базу данных или файл)
         save_user_data(user_id, input_data)
         del user_states[user_id]  # Сбрасываем состояние
+    elif input_data.split("&")[0]:
+        ...
     elif input_data == "exit":
         bot.send_message(message.chat.id, "Ввод завершён")
         del user_states[user_id]

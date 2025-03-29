@@ -144,3 +144,6 @@ def copy_and_execute_script(server_name, script_name, connection_string):
 
     else:
         return "Unsupported server type."
+
+def folder_is_avaiable(server_name):
+    ...
