@@ -19,6 +19,7 @@ cipher_suite = Fernet(ENCRYPTION_KEY)
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 
+clusters_collection = db["clusters"]
 users_collection = db["users"]
 servers_collection = db["servers"]
 
@@ -70,3 +71,31 @@ def get_server_by_server_name(server_name):
     server = servers_collection.find_one({"server_name": server_name})
     server["connection_string"] = cipher_suite.decrypt(server["connection_string"]).decode('utf-8')
     return server
+
+
+def add_cluster(user_id, cluster_name):
+    """Добавление нового кластера."""
+    cluster_data = {
+        "user_id": user_id,
+        "cluster_name": cluster_name,
+        "server_ids": []
+    }
+    clusters_collection.insert_one(cluster_data)
+
+
+def add_server_to_cluster(user_id, cluster_name, server_id):
+    """Добавление сервера в кластер."""
+    clusters_collection.update_one(
+        {"user_id": user_id, "cluster_name": cluster_name},
+        {"$addToSet": {"server_ids": server_id}}
+    )
+
+
+def get_clusters(user_id):
+    """Получение списка кластеров пользователя."""
+    return list(clusters_collection.find({"user_id": user_id}))
+
+
+def get_cluster_by_name(user_id, cluster_name):
+    """Получение кластера по имени."""
+    return clusters_collection.find_one({"user_id": user_id, "cluster_name": cluster_name})
