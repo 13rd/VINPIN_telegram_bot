@@ -2,18 +2,20 @@ import os
 import paramiko
 import winrm
 import shutil
+import subprocess
 
+bot_absolute_path = "C:/Python/VINPIN_telegram_bot/"
 
 def create_server_scripts_folder(server_name):
     """Создание папки для скриптов сервера."""
-    script_folder = f"server_scripts/{server_name}"
+    script_folder = f"{bot_absolute_path}server_scripts/{server_name}"
     os.makedirs(script_folder, exist_ok=True)
 
     # Определение источника скриптов в зависимости от типа сервера
     if "linux" in server_name.lower():
-        source_folder = "scripts/linux"
+        source_folder = bot_absolute_path+"scripts/linux"
     elif "windows" in server_name.lower():
-        source_folder = "scripts/windows"
+        source_folder = bot_absolute_path+"scripts/windows"
     else:
         return
 
@@ -27,20 +29,20 @@ def create_server_scripts_folder(server_name):
 
 def delete_server_scripts_folder(server_name):
     """Удаление папки с файлами скриптов сервера."""
-    script_folder = f"server_scripts/{server_name}"
+    script_folder = f"{bot_absolute_path}server_scripts/{server_name}"
     if os.path.exists(script_folder):
         shutil.rmtree(script_folder)
 
 
 def list_scripts(server_name):
     """Получение списка скриптов для сервера."""
-    script_folder = f"server_scripts/{server_name}"
+    script_folder = f"{bot_absolute_path}server_scripts/{server_name}"
     return [f for f in os.listdir(script_folder) if os.path.isfile(os.path.join(script_folder, f))]
 
 
 def execute_script(server_name, script_name, connection_string):
     """Выполнение скрипта на удаленном сервере."""
-    script_path = f"server_scripts/{server_name}/{script_name}"
+    script_path = f"{bot_absolute_path}server_scripts/{server_name}/{script_name}"
     print(script_path, connection_string)
 
     if "linux" in server_name.lower():
@@ -90,7 +92,7 @@ def copy_and_execute_script(server_name, script_name, connection_string):
     """
     Копирует скрипт на удаленный сервер, выполняет его и удаляет после завершения.
     """
-    script_path = f"server_scripts/{server_name}/{script_name}"
+    script_path = f"{bot_absolute_path}server_scripts/{server_name}/{script_name}"
     if "linux" in connection_string.lower():
         # Разбор строки подключения
         user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
