@@ -17,10 +17,10 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    # db_users = database.get_user_by_id(message.from_user.id)  # get user from db
-    db_users = [int(i) for i in os.getenv("USERS").replace("[", "").replace("]", '').split(",")]  # get users from .env
-    print(db_users)
-    if message.from_user.id in db_users:  # изменить при подключении через бд
+    db_users = database.get_user_by_id(message.from_user.id)  # get user from db
+    # db_users = [int(i) for i in os.getenv("USERS").replace("[", "").replace("]", '').split(",")]  # get users from .env
+    # print(db_users)
+    if db_users:  # изменить при подключении через бд
         bot.send_message(message.chat.id,
                          text=answers.greetings.format(user_name=message.from_user.first_name),
                          reply_markup=answers.keyboard1, parse_mode='Markdown')
@@ -33,6 +33,12 @@ def welcome(message):
 def button_handler(message):
     servers = database.get_servers(message.from_user.id)
     print(servers)
+    if not servers:
+        bot.send_message(
+            message.chat.id,
+            "У вас нет сохранённых серверов"
+        )
+        return
     button_list = [i['server_name'] for i in servers]
     keyboard = create_inline_keyboard(button_list, 'server')
     # Отправляем сообщение с инлайн-клавиатурой
@@ -41,6 +47,7 @@ def button_handler(message):
         answers.ans1,
         reply_markup=keyboard
     )
+
 def create_inline_keyboard(button_list, type):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
     buttons = [
@@ -115,7 +122,7 @@ def save_user_data(user_id, data: str):
     server_name, connection_string = data.split("&")[0], data.split("&")[1]
     scripts.create_server_scripts_folder(server_name)
 
-    database.add_server(user_id, server_name, connection_string, scripts.list_scripts(server_name))
+    database.add_server(user_id, server_name, connection_string)
 
 
 def main():

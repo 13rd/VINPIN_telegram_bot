@@ -2,11 +2,18 @@ from pymongo import MongoClient
 import json
 import os
 from dotenv import load_dotenv
+import hashlib
+from cryptography.fernet import Fernet
+
+import scripts
 
 load_dotenv()
 
 MONGO_URI = os.getenv("mongo_uri")
 DB_NAME = os.getenv("db_name")
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+
+cipher_suite = Fernet(ENCRYPTION_KEY)
 
 # Подключение к MongoDB
 client = MongoClient(MONGO_URI)
@@ -27,25 +34,29 @@ def get_user_by_id(user_id: int):
     return user
 
 
-def add_server(user_id, server_name, connection_string, scripts: list):
+def add_server(user_id, server_name, connection_string):
     """Добавление сервера в базу данных."""
+    encrypted_data = cipher_suite.encrypt(connection_string.encode("utf-8"))
     server_data = {
         "user_id": user_id,
         "server_name": server_name,
-        "connection_string": connection_string,
-        "scripts": scripts
+        "connection_string": encrypted_data,
     }
     servers_collection.insert_one(server_data)
 
 
 def get_servers(user_id):
     """Получение списка серверов пользователя."""
-    return list(servers_collection.find({"user_id": user_id}))
+    servers = list(servers_collection.find({"user_id": user_id}))
+    for server in servers:
+        server["connection_string"] = cipher_suite.decrypt(server["connection_string"]).decode('utf-8')
+    return servers
 
 
-def delete_server(server_id):
+def delete_server(server_name):
     """Удаление сервера из базы данных."""
-    result = servers_collection.delete_one({"_id": server_id})
+    scripts.delete_server_scripts_folder(server_name)
+    result = servers_collection.delete_one({"server_name": server_name})
     return result.deleted_count > 0
 
 
@@ -56,4 +67,6 @@ def get_server_by_id(server_id):
 
 def get_server_by_server_name(server_name):
     """Получение сервера по его NAME."""
-    return servers_collection.find_one({"server_name": server_name})
+    server = servers_collection.find_one({"server_name": server_name})
+    server["connection_string"] = cipher_suite.decrypt(server["connection_string"]).decode('utf-8')
+    return server
