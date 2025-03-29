@@ -104,23 +104,23 @@ def handle_inline_button_click(call):
 @bot.message_handler(func=lambda message: message.text == "Добавить сервер")
 def button_handler(message):
     user_id = message.from_user.id
-    user_states[user_id] = "awaiting_input_server"
+    user_states[user_id] = "awaiting_input_server_string"
     print(user_states[user_id])
     bot.send_message(message.chat.id, answers.ans2)
 
-@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == "awaiting_input_server")
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == "awaiting_input_server_string")
 def message_handler(message):
     user_id = message.from_user.id
     input_data = message.text.strip()
 
-    # Проверяем формат ввода
-    if re.match(FORMAT_REGEX, input_data):  # TODO: сделать проверку имени сервера
-        bot.send_message(message.chat.id, answers.ans3)
+    if not scripts.folder_is_available(input_data.split("&")[0]):
+        bot.send_message(message.chat.id, "Имя сервера занято")
+    elif re.match(FORMAT_REGEX, input_data):
         # Сохраняем данные (например, в базу данных или файл)
         save_user_data(user_id, input_data)
+        user_states[user_id] = "awaiting_input_server_os"
         del user_states[user_id]  # Сбрасываем состояние
-    elif input_data.split("&")[0]:
-        ...
+        bot.send_message(message.chat.id, answers.ans3)
     elif input_data == "exit":
         bot.send_message(message.chat.id, "Ввод завершён")
         del user_states[user_id]

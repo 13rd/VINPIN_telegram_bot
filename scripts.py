@@ -145,5 +145,5 @@ def copy_and_execute_script(server_name, script_name, connection_string):
     else:
         return "Unsupported server type."
 
-def folder_is_avaiable(server_name):
-    ...
+def folder_is_available(server_name):
+    return not os.path.exists(f"{bot_absolute_path}server_scripts/{server_name}")
