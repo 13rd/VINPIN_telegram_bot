@@ -83,11 +83,16 @@ def add_cluster(user_id, cluster_name):
     clusters_collection.insert_one(cluster_data)
 
 
-def add_server_to_cluster(user_id, cluster_name, server_id):
+def add_server_to_cluster(user_id, cluster_name, server_name):
     """Добавление сервера в кластер."""
     clusters_collection.update_one(
         {"user_id": user_id, "cluster_name": cluster_name},
-        {"$addToSet": {"server_ids": server_id}}
+        {"$addToSet": {"server_ids": server_name}}
+    )
+def delete_server_from_cluster(user_id, cluster_name, server_name):
+    clusters_collection.update_one(
+        {"user_id": user_id, "cluster_name": cluster_name},
+        {"$pull": {"server_ids": server_name}}
     )
 
 
@@ -99,3 +104,8 @@ def get_clusters(user_id):
 def get_cluster_by_name(user_id, cluster_name):
     """Получение кластера по имени."""
     return clusters_collection.find_one({"user_id": user_id, "cluster_name": cluster_name})
+
+def delete_cluster(user_id, cluster_name):
+    """Удаление сервера из базы данных."""
+    result = clusters_collection.delete_one({"user_id": user_id, "cluster_name": cluster_name})
+    return result.deleted_count > 0

@@ -1,6 +1,7 @@
 import base64
 import os
 import socket
+import sys
 from concurrent.futures import ThreadPoolExecutor
 import paramiko
 import winrm
@@ -8,7 +9,7 @@ import shutil
 import subprocess
 from pypsrp.client import Client
 
-bot_absolute_path = "C:/Python/VINPIN_telegram_bot/"
+bot_absolute_path = os.path.abspath(__file__).replace("\\\\", "/").replace("scripts.py", "")
 
 def create_server_scripts_folder(server_name):
     """Создание папки для скриптов сервера."""
@@ -208,21 +209,45 @@ def copy_and_execute_script(server_name, script_name, connection_string):
 def folder_is_available(server_name):
     return not os.path.exists(f"{bot_absolute_path}server_scripts/{server_name}")
 
-
 def execute_script_on_cluster(servers, script_name):
     """
     Выполняет команду на всех серверах в кластере параллельно.
     """
     results = {}
+    print(servers)
 
-    def execute_on_server(server):
+    for server in servers:
         try:
             output, errors = copy_and_execute_script(server["server_name"], script_name, server["connection_string"])
             results[server["server_name"]] = [output, errors]
+            print(server)
         except Exception as e:
-            results[server["server_name"]] = [output, f"Ошибка: {str(e)}"]
+            results[server["server_name"]] = ["", f"Ошибка: {str(e)}"]
 
-    with ThreadPoolExecutor() as executor:
-        executor.map(execute_on_server, servers)
 
     return results
+
+def create_cluster_scripts_folder(cluster_name):
+    """Создание папки для скриптов сервера."""
+    cluster_folder = f"{bot_absolute_path}cluster_scripts/{cluster_name}"
+    os.makedirs(cluster_folder, exist_ok=True)
+
+    source_folder = bot_absolute_path+"clusters_default_script/"
+
+    # Копирование всех файлов из исходной папки в папку сервера
+    for filename in os.listdir(source_folder):
+        source_file = os.path.join(source_folder, filename)
+        destination_file = os.path.join(cluster_folder, filename)
+        if os.path.isfile(source_file):  # Копируем только файлы
+            shutil.copy(source_file, destination_file)
+
+def delete_cluster_scripts_folder(cluster_name):
+    """Удаление папки с файлами скриптов сервера."""
+    script_folder = f"{bot_absolute_path}cluster_scripts/{cluster_name}"
+    if os.path.exists(script_folder):
+        shutil.rmtree(script_folder)
+
+def list_scripts_cluster(cluster_name):
+    """Получение списка скриптов для сервера."""
+    script_folder = f"{bot_absolute_path}cluster_scripts/{cluster_name}"
+    return [f for f in os.listdir(script_folder) if os.path.isfile(os.path.join(script_folder, f))]

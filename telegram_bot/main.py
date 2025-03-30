@@ -60,7 +60,7 @@ def create_inline_keyboard(button_list, type):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("server_"))
 def handle_inline_button_click(call):
     user_states[call.message.from_user.id] = f"choosing_server:{call.data.replace("server_", "")}"
-
+    print(call.message.from_user.id)
     scripts_btn = scripts.list_scripts(call.data.replace("server_", ""))
     keyboard = create_inline_keyboard(scripts_btn, 'script')
     keyboard.add(telebot.types.InlineKeyboardButton("Удалить этот сервер", callback_data="script_delete_server"))
@@ -133,6 +133,168 @@ def save_user_data(user_id, data: str):
     scripts.create_server_scripts_folder(server_name)
 
     database.add_server(user_id, server_name, connection_string)
+
+
+@bot.message_handler(func=lambda message: message.text == "Мои кластеры")
+def show_all_clusters(message):
+    clusters = [c["cluster_name"] for c in database.get_clusters(message.from_user.id)]
+    keyboard = create_inline_keyboard(clusters, "cluster")
+    keyboard.add(telebot.types.InlineKeyboardButton("Добавить кластер", callback_data="cluster_&create_cluster"))
+    bot.send_message(message.chat.id, "Выберите кластер:", reply_markup=keyboard)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cluster_"))
+def create_cluster_start(call):
+    cluster_name = call.data.replace("cluster_", "")
+    user_id = call.from_user.id
+    if cluster_name == "&create_cluster":
+        user_states[user_id] = "awaiting_input_cluster_name"
+        print(user_states)
+        bot.send_message(call.message.chat.id, "Введите название кластера")
+    else:
+        user_states[user_id] = "choosing_cluster: " + cluster_name
+        cluster_servers = database.get_cluster_by_name(user_id, cluster_name)['server_ids']
+        text_clusters_servers = "Сервера:\n" + "\n".join(cluster_servers)
+        cluster_scripts = scripts.list_scripts_cluster(cluster_name)
+        keyboard = create_inline_keyboard(cluster_scripts, "&cluster_script")
+        keyboard.add(telebot.types.InlineKeyboardButton("Удалить этот кластер", callback_data="cluster-delete"))
+        keyboard.add(telebot.types.InlineKeyboardButton("Добавить сервер", callback_data="cluster-add_server"))
+        keyboard.add(telebot.types.InlineKeyboardButton("Удалить сервер", callback_data="cluster-delete_server"))
+        bot.send_message(call.message.chat.id, text=text_clusters_servers, reply_markup=keyboard)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == "cluster-delete")
+def delete_cluster(call):
+    user_id = call.from_user.id
+    choosing_cluster = user_states[user_id].replace("choosing_cluster:", "").strip()
+    print(choosing_cluster)
+
+    scripts.delete_cluster_scripts_folder(choosing_cluster)
+    print(database.delete_cluster(user_id, choosing_cluster))
+
+    del user_states[user_id]
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, text="Кластер удалён")
+
+@bot.callback_query_handler(func=lambda call: call.data == "cluster-add_server")
+def add_server_to_cluster(call):
+    user_id = call.from_user.id
+    choosing_cluster = user_states[user_id].replace("choosing_cluster:", "").strip()
+    print(choosing_cluster)
+    servers = database.get_servers(user_id)
+
+    keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
+    buttons = [telebot.types.InlineKeyboardButton(server["server_name"], callback_data="&add_server_"+server["server_name"]) for server in servers]
+    keyboard.add(*buttons)
+    bot.send_message(call.message.chat.id, text="Выберите какой сервер добавить:", reply_markup=keyboard)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("&add_server_"))
+def add_server_to_cluster(call):
+    server_name = call.data.replace("&add_server_", "")
+    cluster_name = user_states[call.from_user.id].replace("choosing_cluster:", "").strip()
+
+    database.add_server_to_cluster(call.from_user.id, cluster_name, server_name)
+    bot.send_message(call.message.chat.id, text="Сервер добавлен")
+
+    bot.answer_callback_query(call.id)
+    del user_states[call.from_user.id]
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "cluster-delete_server")
+def delete_server_from_cluster(call):
+    user_id = call.from_user.id
+    choosing_cluster = user_states[user_id].replace("choosing_cluster:", "").strip()
+    print(choosing_cluster)
+    servers = database.get_cluster_by_name(user_id, choosing_cluster)
+
+    keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
+    buttons = [telebot.types.InlineKeyboardButton(server["server_name"], callback_data="&delete_server_"+server["server_name"]) for server in servers]
+    keyboard.add(*buttons)
+    bot.send_message(call.message.chat.id, text="Выберите какой сервер удалить:", reply_markup=keyboard)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("&delete_server_"))
+def delete_server_from_cluster(call):
+    server_name = call.data.replace("&delete_server_", "")
+    cluster_name = user_states[call.from_user.id].replace("choosing_cluster:", "").strip()
+
+    database.delete_server_from_cluster(call.from_user.id, cluster_name, server_name)
+    bot.send_message(call.message.chat.id, text="Сервер удалён")
+
+    bot.answer_callback_query(call.id)
+    del user_states[call.from_user.id]
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("&cluster_script_"))
+def execute_script_for_cluster(call):
+    script_name = call.data.replace("&cluster_script_", "")
+    cluster_name = user_states[call.from_user.id].replace("choosing_cluster:", "").strip()
+    cluster_servers = database.get_cluster_by_name(call.from_user.id, cluster_name)["server_ids"]
+    servers = []
+    for server in cluster_servers:
+        servers.append(database.get_server_by_server_name(server))
+
+    result = scripts.execute_script_on_cluster(servers, script_name)
+    print(result)
+    text = ""
+    for server in cluster_servers:
+        text += f"Output {server}:\n"+result[server][0]+f"\nErrors {server}: \n"+result[server][1]+"\n~~~~~"
+    bot.send_message(call.message.chat.id, text=text)
+
+    bot.answer_callback_query(call.id)
+    del user_states[call.from_user.id]
+
+
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == "awaiting_input_cluster_name")
+def add_cluster_by_name(message):
+    user_id = message.from_user.id
+    input_data = message.text.strip()
+    print(input_data)
+
+    if database.get_cluster_by_name(user_id, input_data):
+        print(database.get_cluster_by_name(user_id, input_data))
+        bot.send_message(message.chat.id, "Имя сервера занято")
+    else:
+        database.add_cluster(user_id, input_data)
+        scripts.create_cluster_scripts_folder(input_data)
+        bot.send_message(message.chat.id, "Кластер сохранён")
+        del user_states[user_id]
+
+
+
+# @bot.message_handler(commands=["add_server_to_cluster"])
+# def add_server_to_cluster_start(message):
+#     bot.reply_to(message, "Введите имя кластера:")
+#     bot.register_next_step_handler(message, add_server_to_cluster_process_cluster)
+#
+#
+# def add_server_to_cluster_process_cluster(message):
+#     cluster_name = message.text
+#     user_id = message.from_user.id
+#
+#     # Получение серверов пользователя
+#     servers = get_servers(user_id)
+#     if not servers:
+#         bot.reply_to(message, "У вас нет добавленных серверов.")
+#         return
+#
+#     keyboard = telebot.types.InlineKeyboardMarkup()
+#     for server in servers:
+#         button = telebot.types.InlineKeyboardButton(
+#             server["server_name"], callback_data=f"add_to_cluster_{cluster_name}_{server['_id']}"
+#         )
+#         keyboard.add(button)
+#
+#     bot.reply_to(message, "Выберите сервер для добавления в кластер:", reply_markup=keyboard)
+#
+#
+# @bot.callback_query_handler(func=lambda call: call.data.startswith("add_to_cluster_"))
+# def add_server_to_cluster_callback(call):
+#     cluster_name, server_id = call.data.split("_")[3], call.data.split("_")[4]
+#     user_id = call.from_user.id
+#
+#     # Добавление сервера в кластер
+#     add_server_to_cluster(user_id, cluster_name, server_id)
+#     bot.answer_callback_query(call.id, f"Сервер добавлен в кластер '{cluster_name}'.")
 
 
 def main():

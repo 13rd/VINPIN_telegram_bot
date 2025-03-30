@@ -7,7 +7,8 @@ greetings = """Здравствуйте, {user_name}"""
 keyboard1 = types.ReplyKeyboardMarkup(resize_keyboard=True)
 a1 = types.InlineKeyboardButton(text="Мои сервера")
 a2 = types.InlineKeyboardButton(text="Добавить сервер")
-keyboard1.add(a1, a2)
+a3 = types.InlineKeyboardButton(text="Мои кластеры")
+keyboard1.add(a1, a2, a3)
 
 button_list= ["Server1","Server2","Server3","Server4"]
 
