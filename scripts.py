@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pypsrp.client import Client
 
-bot_absolute_path = "C:/Python/VINPIN_telegram_bot/"
+bot_absolute_path = os.path.abspath(__file__).replace("\\\\", "/").replace("scripts.py", "")
 
 def create_server_scripts_folder(server_name):
     """Создание папки для скриптов сервера."""

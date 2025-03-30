@@ -19,7 +19,6 @@ bot = telebot.TeleBot(TOKEN)
 def welcome(message):
     db_users = database.get_user_by_id(message.from_user.id)  # get user from db
     # db_users = [int(i) for i in os.getenv("USERS").replace("[", "").replace("]", '').split(",")]  # get users from .env
-    # print(db_users)
     if db_users:  # изменить при подключении через бд
         bot.send_message(message.chat.id,
                          text=answers.greetings.format(user_name=message.from_user.first_name),
@@ -60,7 +59,6 @@ def create_inline_keyboard(button_list, type):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("server_"))
 def handle_inline_button_click(call):
     user_states[call.message.from_user.id] = f"choosing_server:{call.data.replace("server_", "")}"
-
     scripts_btn = scripts.list_scripts(call.data.replace("server_", ""))
     keyboard = create_inline_keyboard(scripts_btn, 'script')
     keyboard.add(telebot.types.InlineKeyboardButton("Удалить этот сервер", callback_data="script_delete_server"))
@@ -117,16 +115,25 @@ def message_handler(message):
         bot.send_message(message.chat.id, "Имя сервера занято")
     elif re.match(FORMAT_REGEX, input_data):
         # Сохраняем данные (например, в базу данных или файл)
-        save_user_data(user_id, input_data)
-        user_states[user_id] = "awaiting_input_server_os"
-        del user_states[user_id]  # Сбрасываем состояние
-        bot.send_message(message.chat.id, answers.ans3)
+        # save_user_data(user_id, input_data)
+        user_states[user_id] = "awaiting_input_server_os:"+input_data
+        keyboard = create_inline_keyboard(["Linux", "Windows"], 'os')
+        bot.send_message(message.chat.id, text="Выберите ОС", reply_markup=keyboard)
     elif input_data == "exit":
         bot.send_message(message.chat.id, "Ввод завершён")
         del user_states[user_id]
     else:
         bot.send_message(message.chat.id, answers.ans4)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("os_") )
+def offering_server_os(call):
+    connection_string = user_states[call.from_user.id].split(":")[1]
+    os_type = call.data.lower().replace("os_", "")
+
+    save_user_data(call.from_user.id, os_type+"_"+connection_string)
+    bot.send_message(call.message.chat.id, text=answers.ans3)
+    del user_states[call.from_user.id]
+    bot.answer_callback_query(call.id)
 
 def save_user_data(user_id, data: str):
     server_name, connection_string = data.split("&")[0], data.split("&")[1]
