@@ -1,2 +1,2 @@
-*VINPIN Administrator Bot*
+## VINPIN Administrator Bot
 Телеграм бот, созданный для улучшения и упрощения администрирования серверов.
