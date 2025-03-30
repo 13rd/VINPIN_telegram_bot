@@ -128,7 +128,7 @@ def message_handler(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("os_") )
 def offering_server_os(call):
-    connection_string = user_states[call.from_user.id].split(":")[1]
+    connection_string = user_states[call.from_user.id].replace("awaiting_input_server_os:", "")
     os_type = call.data.lower().replace("os_", "")
 
     save_user_data(call.from_user.id, os_type+"_"+connection_string)
@@ -137,7 +137,9 @@ def offering_server_os(call):
     bot.answer_callback_query(call.id)
 
 def save_user_data(user_id, data: str):
+    print(data)
     server_name, connection_string = data.split("&")[0], data.split("&")[1]
+    print(server_name, connection_string)
     scripts.create_server_scripts_folder(server_name)
 
     database.add_server(user_id, server_name, connection_string)

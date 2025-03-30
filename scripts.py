@@ -100,6 +100,7 @@ def copy_and_execute_script(server_name, script_name, connection_string):
     script_path = f"{bot_absolute_path}server_scripts/{server_name}/{script_name}"
     if "linux" in server_name:
         # Разбор строки подключения
+        print(connection_string)
         user, password = connection_string.split(":")[0], connection_string.split(":")[1].split("@")[0]
         ip, port = connection_string.split("@")[1].split(":")
         port = int(port)
